@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dropdown, Table, and Charts</title>
+    <style>
+        /* Reset some default styles and apply a background color */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        /* Style the header section */
+        header {
+            background: linear-gradient(to bottom, #48C6EF, #6F86D6);
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: fadeInUp 0.5s ease-out 0.5s forwards;
+        }
+
+        /* Animation for the labels */
+        .labels {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInDown 0.5s ease-out 1s forwards;
+        }
+
+        /* Animation for the charts */
+        .chart-container {
+            margin: 20px;
+            display: inline-block;
+            width: 45%;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInDown 0.5s ease-out 1.5s forwards;
+        }
+
+        /* Style the select element */
+        .filter {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        select {
+            width: 200px;
+            padding: 8px;
+            font-size: 16px;
+        }
+
+        /* Style the table */
+        .table-container {
+            margin: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        th {
+            background-color: #007DBA;
+            color: #ffffff;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #ffffff;
+        }
+
+        /* Style the dropdown options with different colors */
+        select option[value="All"] {
+            background-color: #e0e0e0;
+        }
+
+        select option[value="sales"] {
+            background-color: #ffcccb;
+        }
+
+        select option[value="marketing"] {
+            background-color: #ffeba7;
+        }
+
+        select option[value="supplychain"] {
+            background-color: #d3ffb5;
+        }
+
+        /* Center the header content */
+        .center-container {
+            text-align: center;
+        }
+
+        /* Style for the labels */
+        .labels {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        /* Modern button style */
+        .modern-button {
+            background-color: #007DBA;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .modern-button:hover {
+            background-color: #005180;
+            transform: scale(1.05);
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        /* Keyframe animations */
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    </*img src="https://tenfour.nz/wp-content/uploads/2022/05/test.png" alt="test Logo" width="100" height="50">
+    <h1>vCore Dashboard</h1>
+</header>
+
+<div class="center-container">
+    <label for="dropdown">Select Line Of Business (LOB):</label>
+    <select id="dropdown">
+	   <option value="select">Select</option>
+        <option value="all">All</option>
+        <option value="sales">Sales</option>
+        <option value="marketing">Marketing</option>
+        <option value="supplychain">Supply Chain</option>
+    </select>
+    <button id="download-excel" class="modern-button" disabled>Download as Excel</button>
+</div>
+
+<table id="data-table">
+    <thead>
+    <tr>
+        <th onclick="sortTable('Line of Business')">LOB Name</th>
+        <th onclick="sortTable('Environment')">Environment</th>
+        <th onclick="sortTable('No.Of API\'S')">No.APIs</th>
+        <th onclick="sortTable('vCoresUsed')">vCores Used</th>
+    </tr>
+    </thead>
+    <tbody id="table-body">
+    <!-- Data will be populated here using JavaScript -->
+    </tbody>
+</table>
+
+<!-- Labels for vCores Sum -->
+<div class="labels">
+    <label for="non-prod-sum">Total Non-Prod vCores:</label>
+    <span id="non-prod-sum">0</span>
+    <br>
+    <label for="prod-sum">Total Prod vCores:</label>
+    <span id="prod-sum">0</span>
+</div>
+
+<!-- Pie Chart -->
+<div class="chart-container">
+    <h2>Prod vCore Distribution Chart</h2>
+    <canvas id="pie-chart-Prod" width="400" height="400"></canvas>
+</div>
+
+<div class="chart-container">
+    <h2>Non-Prod vCore Distribution Chart</h2>
+    <canvas id="pie-chart-Non-Prod" width="400" height="400"></canvas>
+</div>
+
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script>
+    // JavaScript code to fetch and populate data based on the dropdown value
+    let currentSortColumn = "";
+    let currentSortOrder = "asc"; // Initial sorting order
+    let sumNonProd = 0;
+    let sumProd = 0;
+
+    const dropdown = document.getElementById("dropdown");
+    const dataTableBody = document.getElementById("table-body");
+    const nonProdSumLabel = document.getElementById("non-prod-sum");
+    const prodSumLabel = document.getElementById("prod-sum");
+    const excelButton = document.getElementById("download-excel");
+
+    dropdown.addEventListener("change", function () {
+        const selectedOption = this.value;
+		
+		 // Check if the selected option is "Select"
+    if (selectedOption === "select") {
+        // Clear existing data
+        dataTableBody.innerHTML = "";
+        nonProdSumLabel.textContent = "0";
+        prodSumLabel.textContent = "0";
+        clearCharts();
+
+        // Disable the "Download as Excel" button
+        excelButton.disabled = true;
+
+        // Exit the function since there's no need to fetch data
+        return;
+    }		
+        const url = 'http://vcore-dashboard.us-e2.cloudhub.io/dashboard/vcore' + "?LOB=" + selectedOption;
+        console.log(url);
+
+        dataTableBody.innerHTML = "";
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+    data = sortData(data, currentSortColumn, currentSortOrder);
+    sumNonProd = 0;
+    sumProd = 0;
+
+    const prodData = [];
+    const nonProdData = [];
+
+    data.forEach(item => {
+        // Check if the required data exists
+        if (
+            item["Line of Business"] !== undefined &&
+            item["Environment"] !== undefined &&
+            item["No.Of API\'S"] !== undefined &&
+            item["vCoresUsed"] !== undefined
+        ) {
+            const newRow = document.createElement("tr");
+            newRow.innerHTML = "<td>" + item["Line of Business"] + "</td><td>" + item["Environment"] + "</td>" + "<td>" + item["No.Of API\'S"] + "</td><td>" + item['vCoresUsed'] + "</td>";
+            dataTableBody.appendChild(newRow);
+
+            // Update the sums based on the "Environment" value
+            if (item["Environment"] === "Non-Prod") {
+                sumNonProd += parseFloat(item['vCoresUsed']);
+                nonProdData.push(item);
+            } else if (item["Environment"] === "Prod") {
+                sumProd += parseFloat(item['vCoresUsed']);
+                prodData.push(item);
+            }
+        }
+    });
+
+    // Update the labels for vCores Sum
+    nonProdSumLabel.textContent = sumNonProd.toFixed(1);
+    prodSumLabel.textContent = sumProd.toFixed(1);
+    clearCharts();
+
+    // Create and update the line chart and radar chart
+       createPieChart(prodData, "Prod", selectedOption);
+       createPieChart(nonProdData, "Non-Prod", selectedOption);
+
+    // Enable or disable the "Download as Excel" button
+    toggleExcelButton();
+})
+            .catch(error => {
+                console.error("Error fetching data:", error);
+            });
+    });
+
+    // Function to clear existing chart data
+    function clearCharts() {
+        
+        const pieChartCanvas = document.getElementById("pie-chart-Prod");
+        const NonProdpieChartCanvas = document.getElementById("pie-chart-Non-Prod");
+        // Clear the chart canvases
+        
+        pieChartCanvas.getContext("2d").clearRect(0, 0, pieChartCanvas.width, pieChartCanvas.height);
+		NonProdpieChartCanvas.getContext("2d").clearRect(0, 0, NonProdpieChartCanvas.width, NonProdpieChartCanvas.height);
+     		
+    }
+
+    function sortData(data, column, order) {
+        if (column === "") {
+            return data;
+        }
+
+        data.sort((a, b) => {
+            if (order === "asc") {
+                return a[column] < b[column] ? -1 : a[column] > b[column] ? 1 : 0;
+            } else {
+                return b[column] < a[column] ? -1 : b[column] > a[column] ? 1 : 0;
+            }
+        });
+
+        return data;
+    }
+
+    function sortTable(column) {
+        if (currentSortColumn === column) {
+            currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+        } else {
+            currentSortColumn = column;
+            currentSortOrder = "asc";
+        }
+
+        dropdown.dispatchEvent(new Event("change"));
+    }
+
+function createPieChart(data, environment, selectedOption) {
+    const ctx = document.getElementById(`pie-chart-${environment}`).getContext("2d");
+
+    // Destroy the existing chart if it exists
+    if (window.pieCharts && window.pieCharts[environment]) {
+        window.pieCharts[environment].destroy();
+    }
+
+    const environments = [];
+    const vCoresUsed = [];
+    const backgroundColors = [];
+    const labels = [];
+
+    // Mapping between scenarios and colors
+    const scenarioColors = {
+        "sales": "#ffcccb",
+        "marketing": "#d3ffb5",
+        "supplychain": "#a7d3ff",
+    };
+
+    data.forEach(item => {
+        // Check if the required data exists
+        if (
+            item["Line of Business"] !== undefined &&
+            item["Environment"] !== undefined &&
+            item["vCoresUsed"] !== undefined
+        ) {
+            const scenario = item["Line of Business"];
+            
+            // Check if the selected option is "ALL" or matches the scenario
+            if (selectedOption === "all" || selectedOption === scenario) {
+                environments.push(scenario);
+                vCoresUsed.push(parseFloat(item["vCoresUsed"]));
+
+                // Assign colors based on the scenario and environment
+                const color = scenarioColors[scenario] || "#d3d3d3"; // Default color if not found
+                backgroundColors.push(color);
+                labels.push(scenario);
+            }
+        }
+    });
+
+    window.pieCharts = window.pieCharts || {};
+    
+    window.pieCharts[environment] = new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    data: vCoresUsed,
+                    backgroundColor: backgroundColors,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: `vCore Distribution Chart - ${environment}`,
+                },
+            },
+            tooltips: {
+                callbacks: {
+                    label: function (tooltipItem, data) {
+                        const dataset = data.datasets[tooltipItem.datasetIndex];
+                        const value = dataset.data[tooltipItem.index];
+                        const label = data.labels[tooltipItem.index];
+                        return `${label}: ${value.toFixed(1)} vCores`;
+                    },
+                },
+            },
+        },
+    });
+}
+
+
+
+
+
+
+
+
+    // Function to enable/disable the "Download as Excel" button based on table data
+    function toggleExcelButton() {
+        const excelButton = document.getElementById("download-excel");
+        const table = document.getElementById("data-table");
+        const hasData = table && table.rows.length > 2; // Check if the table has more than just the header and labels rows
+        excelButton.disabled = !hasData;
+    }
+
+    toggleExcelButton();
+
+    dropdown.addEventListener("change", toggleExcelButton);
+
+    // JavaScript code for generating Excel downloads
+    document.addEventListener("DOMContentLoaded", function () {
+        const downloadExcelButton = document.getElementById("download-excel");
+        downloadExcelButton.addEventListener("click", function () {
+            // Generate Excel
+            const timestamp = new Date().toISOString().replace(/[-T:\.Z]/g, '').substring(0, 17);
+            const table = document.getElementById("data-table");
+            const ws = XLSX.utils.table_to_sheet(table);
+            const wb = XLSX.utils.book_new();
+            const wsLabels = XLSX.utils.table_to_sheet(document.querySelector(".labels"));
+
+            XLSX.utils.book_append_sheet(wb, ws, "vCore_Data");
+            XLSX.utils.book_append_sheet(wb, wsLabels, "Labels");
+            const selectedLOB = document.getElementById("dropdown").value;
+            const fileName = `vCore_Data_${selectedLOB}_${timestamp}.xlsx`;
+
+            XLSX.writeFile(wb, fileName);
+        });
+    });
+</script>
+</body>
+</html>
